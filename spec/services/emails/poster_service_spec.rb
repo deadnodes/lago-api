@@ -7,7 +7,8 @@ RSpec.describe Emails::PosterService do
 
   let(:invoice) { create(:invoice, status: :finalized, fees_amount_cents: 1000) }
   let(:poster_client) { instance_double(LagoHttpClient::Client) }
-  let(:mailer_delivery) { double("mailer delivery") }
+  let(:parameterized_mailer) { instance_double(ActionMailer::Parameterized::Mailer) }
+  let(:mailer_delivery) { instance_double(ActionMailer::MessageDelivery) }
   let(:text_body) { instance_double(Mail::Body, decoded: "Invoice body") }
   let(:html_body) { instance_double(Mail::Body, decoded: "<p>Invoice body</p>") }
   let(:attachment_body) { instance_double(Mail::Body, decoded: "%PDF-1.7") }
@@ -41,8 +42,8 @@ RSpec.describe Emails::PosterService do
         "LAGO_POSTER_API_TOKEN" => "poster-token"
       )
     )
-    allow(InvoiceMailer).to receive(:with).and_return(mailer_delivery)
-    allow(mailer_delivery).to receive(:created).and_return(mailer_delivery)
+    allow(InvoiceMailer).to receive(:with).and_return(parameterized_mailer)
+    allow(parameterized_mailer).to receive(:created).and_return(mailer_delivery)
     allow(mailer_delivery).to receive(:message).and_return(message)
     allow(LagoHttpClient::Client).to receive(:new).and_return(poster_client)
     allow(poster_client).to receive(:post).and_return({"created" => 1})
