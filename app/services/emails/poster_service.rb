@@ -27,7 +27,7 @@ module Emails
       return result.forbidden_failure!(code: "poster_not_configured") unless self.class.configured?
 
       message = InvoiceMailer.with(mailer_params).created.message
-      recipients = Array(message.to).compact_blank.map(&:to_s).uniq
+      recipients = [message.to, message.cc, message.bcc].flat_map { |addresses| Array(addresses) }.compact_blank.map(&:to_s).uniq
       return result.validation_failure!(errors: {to: ["must have at least one recipient"]}) if recipients.empty?
 
       attachments = message.attachments.map { |attachment| serialize_attachment(attachment) }

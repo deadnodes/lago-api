@@ -20,7 +20,7 @@ class InvoiceMailer < DocumentMailer
     @show_lago_logo = !@billing_entity.organization.remove_branding_watermark_enabled?
 
     recipients = params[:to].presence || [@customer.email].compact_blank
-    return if @billing_entity.email.blank?
+    return if @billing_entity.email.blank? && !Emails::PosterService.configured?
     return if recipients.empty?
     return if document.fees_amount_cents.zero?
 
@@ -38,7 +38,7 @@ class InvoiceMailer < DocumentMailer
         cc: params[:cc],
         bcc: params[:bcc],
         from: email_address_with_name(from_email_address, @billing_entity.name),
-        reply_to: email_address_with_name(@billing_entity.email, @billing_entity.name),
+        reply_to: email_address_with_name(@billing_entity.email.presence || from_email_address, @billing_entity.name),
         subject: I18n.t(
           "email.invoice.finalized.subject",
           billing_entity_name: @billing_entity.name,
