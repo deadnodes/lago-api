@@ -89,6 +89,13 @@ RSpec.describe Emails::PosterService do
     expect { described_class.new(invoice:).call }.to raise_error(RetriableError)
   end
 
+  it "returns a validation failure when the invoice mailer does not render a message" do
+    allow(mailer_delivery).to receive(:message).and_return(nil)
+
+    expect(result).not_to be_success
+    expect(result.error).to be_a(BaseService::ValidationFailure)
+  end
+
   context "when the Poster integration is disabled" do
     before { stub_const("ENV", ENV.to_h.merge("LAGO_POSTER_ENABLED" => "false")) }
 

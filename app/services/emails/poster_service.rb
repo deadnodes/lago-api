@@ -27,6 +27,8 @@ module Emails
       return result.forbidden_failure!(code: "poster_not_configured") unless self.class.configured?
 
       message = InvoiceMailer.with(mailer_params).created.message
+      return result.validation_failure!(errors: {invoice: ["could not render invoice email"]}) unless message
+
       recipients = [message.to, message.cc, message.bcc].flat_map { |addresses| Array(addresses) }.compact_blank.map(&:to_s).uniq
       return result.validation_failure!(errors: {to: ["must have at least one recipient"]}) if recipients.empty?
 
