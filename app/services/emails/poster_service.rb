@@ -24,6 +24,7 @@ module Emails
     def call
       return result.not_found_failure!(resource: "invoice") unless invoice
       return result.not_allowed_failure!(code: "invoice_not_finalized") unless invoice.finalized?
+      return result if invoice.fees_amount_cents.zero? || invoice.customer.email.blank?
       return result.forbidden_failure!(code: "poster_not_configured") unless self.class.configured?
 
       message = InvoiceMailer.with(invoice:).finalized.message

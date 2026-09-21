@@ -80,6 +80,18 @@ RSpec.describe Emails::PosterService do
     expect(poster_client).not_to have_received(:post)
   end
 
+  it "skips a zero-value invoice as the mailer does" do
+    allow(invoice).to receive(:fees_amount_cents).and_return(0)
+    expect(result).to be_success
+    expect(poster_client).not_to have_received(:post)
+  end
+
+  it "skips an invoice without a customer email as the mailer does" do
+    allow(invoice.customer).to receive(:email).and_return(nil)
+    expect(result).to be_success
+    expect(poster_client).not_to have_received(:post)
+  end
+
   context "when the integration is disabled" do
     before { stub_const("ENV", ENV.to_h.merge("LAGO_POSTER_ENABLED" => "false")) }
 
