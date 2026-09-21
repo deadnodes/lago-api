@@ -313,7 +313,7 @@ module Invoices
     end
 
     def should_deliver_email?
-      License.premium? && regenerated_invoice.billing_entity.email_settings.include?("invoice.finalized")
+      Invoices::EmailDelivery.enabled? && regenerated_invoice.billing_entity.email_settings.include?("invoice.finalized")
     end
   end
 end

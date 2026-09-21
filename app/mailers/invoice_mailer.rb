@@ -37,7 +37,7 @@ class InvoiceMailer < DocumentMailer
         to: recipients,
         cc: params[:cc],
         bcc: params[:bcc],
-        from: email_address_with_name(@billing_entity.from_email_address, @billing_entity.name),
+        from: email_address_with_name(from_email_address, @billing_entity.name),
         reply_to: email_address_with_name(@billing_entity.email, @billing_entity.name),
         subject: I18n.t(
           "email.invoice.finalized.subject",
@@ -46,5 +46,12 @@ class InvoiceMailer < DocumentMailer
         )
       )
     end
+  end
+
+  def from_email_address
+    return @billing_entity.from_email_address if @billing_entity.from_email_address.present?
+    return "no-reply@poster.invalid" if Emails::PosterService.configured?
+
+    @billing_entity.from_email_address
   end
 end

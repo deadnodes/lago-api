@@ -15,7 +15,7 @@ module Emails
     def call
       return result.not_found_failure!(resource: resource_type) unless resource
       return result.not_allowed_failure!(code: "#{resource_type}_not_finalized") unless valid_status?
-      return result.forbidden_failure!(code: "premium_license_required") unless License.premium?
+      return result.forbidden_failure!(code: "premium_license_required") unless delivery_enabled?
       return result.validation_failure!(errors: validation_errors) if validation_errors.any?
 
       send_email
@@ -27,10 +27,19 @@ module Emails
     attr_reader :resource, :to, :cc, :bcc
 
     def send_email
-      mailer_class
-        .with(mailer_params)
-        .created
-        .deliver_later
+      if resource.is_a?(Invoice) && Emails::PosterService.configured?
+        Invoices::NotifyJob.perform_later(
+          invoice: resource,
+          to: recipients_to,
+          cc: recipients_cc,
+          bcc: recipients_bcc
+        )
+      else
+        mailer_class
+          .with(mailer_params)
+          .created
+          .deliver_later
+      end
     end
 
     def mailer_class
@@ -88,7 +97,9 @@ module Emails
     def validation_errors
       errors = {}
       errors[:billing_entity] = ["must have email configured"] if billing_entity.email.blank?
-      errors[:from] = ["must have a sender email address configured"] if billing_entity.from_email_address.blank?
+      if billing_entity.from_email_address.blank? && !poster_invoice_delivery?
+        errors[:from] = ["must have a sender email address configured"]
+      end
       errors[:invoice] = ["must have a non-zero fees amount"] if zero_amount_invoice?
       errors[:to] = ["must have at least one recipient"] if recipients_to.empty?
 
@@ -114,6 +125,14 @@ module Emails
     # fees amount, not the presence of fees: an invoice can carry fees that sum to zero.
     def zero_amount_invoice?
       resource.is_a?(Invoice) && resource.fees_amount_cents.zero?
+    end
+
+    def delivery_enabled?
+      License.premium? || poster_invoice_delivery?
+    end
+
+    def poster_invoice_delivery?
+      resource.is_a?(Invoice) && Emails::PosterService.configured?
     end
   end
 end
