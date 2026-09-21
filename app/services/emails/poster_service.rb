@@ -6,8 +6,12 @@ module Emails
   class PosterService < BaseService
     Result = BaseResult
 
+    def self.enabled?
+      ActiveModel::Type::Boolean.new.cast(ENV["LAGO_POSTER_ENABLED"]) == true
+    end
+
     def self.configured?
-      ActiveModel::Type::Boolean.new.cast(ENV["LAGO_POSTER_ENABLED"]) == true &&
+      enabled? &&
         ENV["LAGO_POSTER_API_URL"].present? &&
         ENV["LAGO_POSTER_API_TOKEN"].present?
     end

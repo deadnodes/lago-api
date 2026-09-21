@@ -11,7 +11,7 @@ module Invoices
     end
 
     def perform(invoice:)
-      if Emails::PosterService.configured?
+      if Emails::PosterService.enabled?
         Emails::PosterService.call!(invoice:)
       else
         InvoiceMailer.with(invoice:).finalized.deliver_later

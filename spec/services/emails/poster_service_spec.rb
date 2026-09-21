@@ -80,4 +80,13 @@ RSpec.describe Emails::PosterService do
       expect(poster_client).not_to have_received(:post)
     end
   end
+
+  context "when the integration is enabled without a token" do
+    before { stub_const("ENV", ENV.to_h.merge("LAGO_POSTER_API_TOKEN" => "")) }
+
+    it "fails without enqueueing an email" do
+      expect(result.error).to be_a(BaseService::ForbiddenFailure)
+      expect(poster_client).not_to have_received(:post)
+    end
+  end
 end

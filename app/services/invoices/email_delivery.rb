@@ -5,7 +5,7 @@ module Invoices
     module_function
 
     def enabled?
-      License.premium? || Emails::PosterService.configured?
+      Emails::PosterService.enabled? || License.premium?
     end
   end
 end
