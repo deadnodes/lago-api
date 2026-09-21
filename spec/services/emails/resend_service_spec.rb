@@ -85,6 +85,26 @@ RSpec.describe Emails::ResendService do
         end
       end
 
+      context "when Poster is configured" do
+        before do
+          allow(License).to receive(:premium?).and_return(false)
+          stub_const(
+            "ENV",
+            ENV.to_h.merge(
+              "LAGO_POSTER_ENABLED" => "true",
+              "LAGO_POSTER_API_URL" => "https://poster.example.internal",
+              "LAGO_POSTER_API_TOKEN" => "poster-token"
+            )
+          )
+        end
+
+        it "queues the invoice for Poster delivery" do
+          expect(Invoices::NotifyJob).to receive(:perform_later).with(invoice: resource, to: [customer.email], cc: [], bcc: [])
+
+          expect(service.call).to be_success
+        end
+      end
+
       context "when email settings are disabled" do
         let(:status) { :finalized }
 
