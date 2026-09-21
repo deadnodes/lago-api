@@ -7,7 +7,7 @@ module Emails
     Result = BaseResult
 
     def self.configured?
-      ActiveModel::Type::Boolean.new.cast(ENV["LAGO_POSTER_ENABLED"]) &&
+      ActiveModel::Type::Boolean.new.cast(ENV["LAGO_POSTER_ENABLED"]) == true &&
         ENV["LAGO_POSTER_API_URL"].present? &&
         ENV["LAGO_POSTER_API_TOKEN"].present?
     end
