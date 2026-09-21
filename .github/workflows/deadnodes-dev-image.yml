@@ -3,7 +3,6 @@ name: DeadNodes dev image
 on:
   push:
     branches:
-      - main
       - codex/lago-poster-dev-141
   workflow_dispatch:
 
