@@ -3,12 +3,22 @@
 require "rails_helper"
 
 RSpec.describe Emails::PosterService do
+  class ParameterizedMailerStub
+    def created
+    end
+  end
+
+  class MessageDeliveryStub
+    def message
+    end
+  end
+
   subject(:result) { described_class.call(invoice:) }
 
   let(:invoice) { create(:invoice, status: :finalized, fees_amount_cents: 1000) }
   let(:poster_client) { instance_double(LagoHttpClient::Client) }
-  let(:parameterized_mailer) { instance_double(ActionMailer::Parameterized::Mailer) }
-  let(:mailer_delivery) { instance_double(ActionMailer::MessageDelivery) }
+  let(:parameterized_mailer) { instance_double(ParameterizedMailerStub) }
+  let(:mailer_delivery) { instance_double(MessageDeliveryStub) }
   let(:text_body) { instance_double(Mail::Body, decoded: "Invoice body") }
   let(:html_body) { instance_double(Mail::Body, decoded: "<p>Invoice body</p>") }
   let(:attachment_body) { instance_double(Mail::Body, decoded: "%PDF-1.7") }
