@@ -123,6 +123,26 @@ RSpec.describe Subscriptions::ActivationRules::Payment::ResolveService do
       end
     end
 
+    context "with Poster invoice delivery" do
+      before do
+        allow(License).to receive(:premium?).and_return(false)
+        stub_const(
+          "ENV",
+          ENV.to_h.merge(
+            "LAGO_POSTER_ENABLED" => "true",
+            "LAGO_POSTER_API_URL" => "https://poster.example.internal",
+            "LAGO_POSTER_API_TOKEN" => "poster-token"
+          )
+        )
+      end
+
+      it "enqueues GenerateDocumentsJob with notify true" do
+        result
+
+        expect(Invoices::GenerateDocumentsJob).to have_been_enqueued.with(invoice:, notify: true)
+      end
+    end
+
     it "tracks invoice creation in segment" do
       allow(Utils::SegmentTrack).to receive(:invoice_created)
 

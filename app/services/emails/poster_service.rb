@@ -37,6 +37,12 @@ module Emails
 
       client.post(payload(message, recipients, attachments), headers)
       result
+    rescue LagoHttpClient::HttpError => error
+      raise RetriableError if LagoHttpClient::Client::RETRYABLE_HTTP_STATUSES.include?(error.error_code.to_i)
+
+      raise
+    rescue *LagoHttpClient::Client::TRANSIENT_ERROR_CLASSES
+      raise RetriableError
     end
 
     private

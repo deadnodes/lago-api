@@ -83,6 +83,12 @@ RSpec.describe Emails::PosterService do
     )
   end
 
+  it "raises a retriable error after a transient Poster failure" do
+    allow(poster_client).to receive(:post).and_raise(LagoHttpClient::HttpError.new(503, "unavailable", nil))
+
+    expect { described_class.new(invoice:).call }.to raise_error(RetriableError)
+  end
+
   context "when the Poster integration is disabled" do
     before { stub_const("ENV", ENV.to_h.merge("LAGO_POSTER_ENABLED" => "false")) }
 
