@@ -7,8 +7,18 @@ RSpec.describe Emails::PosterService do
 
   let(:invoice) { create(:invoice, status: :finalized, fees_amount_cents: 1000) }
   let(:poster_client) { instance_double(LagoHttpClient::Client) }
-  let(:parameterized_mailer_class) { Class.new { def created; end } }
-  let(:message_delivery_class) { Class.new { def message; end } }
+  let(:parameterized_mailer_class) do
+    Class.new do
+      def created
+      end
+    end
+  end
+  let(:message_delivery_class) do
+    Class.new do
+      def message
+      end
+    end
+  end
   let(:parameterized_mailer) { instance_double(parameterized_mailer_class) }
   let(:mailer_delivery) { instance_double(message_delivery_class) }
   let(:text_body) { instance_double(Mail::Body, decoded: "Invoice body") }
