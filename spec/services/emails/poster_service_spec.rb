@@ -43,12 +43,16 @@ RSpec.describe Emails::PosterService do
     expect(result).to be_success
     expect(poster_client).to have_received(:post).with(
       hash_including(
-        campaign: "lago-invoice",
-        recipients: [{email: invoice.customer.email, name: invoice.customer.name.to_s}],
+        topic: "lago_invoice",
+        recipient: {
+          recipient_ref: "lago-customer:#{invoice.customer.id}",
+          email: invoice.customer.email,
+          name: invoice.customer.name.to_s
+        },
         subject: "Invoice INV-123",
         body_text: "Invoice body",
         body_html: "<p>Invoice body</p>",
-        idempotency_key_prefix: "lago-invoice:#{invoice.id}:v#{invoice.version_number}",
+        idempotency_key: "lago-invoice:#{invoice.id}:v#{invoice.version_number}:r0",
         attachments: [
           {
             filename: "invoice-123.pdf",
@@ -58,6 +62,10 @@ RSpec.describe Emails::PosterService do
         ]
       ),
       [{"Authorization" => "Bearer poster-token"}]
+    )
+    expect(LagoHttpClient::Client).to have_received(:new).with(
+      "https://poster.example.internal/api/v1/notifications/email",
+      anything
     )
   end
 

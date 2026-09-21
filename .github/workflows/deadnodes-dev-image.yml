@@ -80,3 +80,74 @@ jobs:
           platforms: linux/amd64
           tags: ghcr.io/deadnodes/lago-api:dev-${{ github.sha }}
           labels: org.opencontainers.image.source=https://github.com/deadnodes/lago-api
+
+  deploy-dev:
+    runs-on: ubuntu-latest
+    needs: build
+    concurrency:
+      group: lago-api-dev-gitops
+      cancel-in-progress: false
+    steps:
+      - name: Require Flux GitHub App credentials
+        env:
+          FLUX_APP_ID: ${{ secrets.FLUX_APP_ID }}
+          FLUX_APP_PRIVATE_KEY: ${{ secrets.FLUX_APP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$FLUX_APP_ID" ] || [ -z "$FLUX_APP_PRIVATE_KEY" ]; then
+            echo "Missing FLUX_APP_ID or FLUX_APP_PRIVATE_KEY in lago-api Actions secrets"
+            exit 1
+          fi
+      - name: Create scoped Flux token
+        id: flux-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.FLUX_APP_ID }}
+          private-key: ${{ secrets.FLUX_APP_PRIVATE_KEY }}
+          owner: deadnodes
+          repositories: flux
+      - name: Checkout Flux
+        uses: actions/checkout@v4
+        with:
+          repository: deadnodes/flux
+          ref: main
+          token: ${{ steps.flux-token.outputs.token }}
+          path: flux
+      - name: Update dev Lago image in Flux
+        env:
+          IMAGE_TAG: dev-${{ github.sha }}
+        run: |
+          python -m pip install 'ruamel.yaml==0.18.6'
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from ruamel.yaml import YAML
+
+          manifest = Path('flux/clusters/platform-dev/custom-resources/lago-dev/helm-release.yaml')
+          yaml = YAML()
+          release = yaml.load(manifest)
+          if release['kind'] != 'HelmRelease' or release['metadata']['name'] != 'lago':
+              raise SystemExit('Unexpected Flux target')
+          if release['metadata']['namespace'] != 'lago-dev':
+              raise SystemExit('Unexpected Lago namespace')
+          if release['spec']['chart']['spec']['version'] != '0.15.0':
+              raise SystemExit('Unexpected Lago chart version')
+          values = release['spec']['values']
+          for role in ('api', 'worker', 'clock', 'migrate'):
+              image = values.setdefault(role, {}).setdefault('image', {})
+              image['repository'] = 'ghcr.io/deadnodes/lago-api'
+              image['tag'] = os.environ['IMAGE_TAG']
+          with manifest.open('w') as output:
+              yaml.dump(release, output)
+          PY
+      - name: Commit dev desired state
+        working-directory: flux
+        run: |
+          git config user.name 'deadnodes[bot]'
+          git config user.email 'deadnodes[bot]@users.noreply.github.com'
+          git add clusters/platform-dev/custom-resources/lago-dev/helm-release.yaml
+          if git diff --cached --quiet; then
+            echo 'Dev already uses this image'
+            exit 0
+          fi
+          git commit -m "Обновляет Lago dev image до dev-${{ github.sha }}"
+          git push origin HEAD:main

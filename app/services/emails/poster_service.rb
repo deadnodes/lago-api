@@ -35,7 +35,9 @@ module Emails
         return result.validation_failure!(errors: {invoice: ["must have a generated PDF"]})
       end
 
-      client.post(payload(message, recipients, attachments), headers)
+      recipients.each_with_index do |email, index|
+        client.post(payload(message, email, index, attachments), headers)
+      end
       result
     rescue LagoHttpClient::HttpError => error
       raise RetriableError if error.error_code.to_i == 408 || error.error_code.to_i == 429 || error.error_code.to_i >= 500
@@ -51,7 +53,7 @@ module Emails
 
     def client
       @client ||= LagoHttpClient::Client.new(
-        "#{ENV.fetch("LAGO_POSTER_API_URL").chomp("/")}/api/v1/emails",
+        "#{ENV.fetch("LAGO_POSTER_API_URL").chomp("/")}/api/v1/notifications/email",
         open_timeout: ENV.fetch("LAGO_POSTER_OPEN_TIMEOUT", "5").to_i,
         read_timeout: ENV.fetch("LAGO_POSTER_READ_TIMEOUT", "30").to_i
       )
@@ -61,10 +63,15 @@ module Emails
       [{"Authorization" => "Bearer #{ENV.fetch("LAGO_POSTER_API_TOKEN")}"}]
     end
 
-    def payload(message, recipients, attachments)
+    def payload(message, email, recipient_index, attachments)
       {
-        campaign: "lago-invoice",
-        recipients: recipients.map { |email| {email:, name: invoice.customer.name.to_s} },
+        idempotency_key: "lago-invoice:#{invoice.id}:v#{invoice.version_number}:r#{recipient_index}",
+        topic: "lago_invoice",
+        recipient: {
+          recipient_ref: "lago-customer:#{invoice.customer.id}",
+          email:,
+          name: invoice.customer.name.to_s
+        },
         subject: message.subject.to_s,
         body_text: message.text_part&.body&.decoded || message.body.decoded,
         body_html: message.html_part&.body&.decoded || message.body.decoded,
@@ -73,8 +80,7 @@ module Emails
           invoice_number: invoice.number,
           customer_id: invoice.customer.id
         },
-        attachments:,
-        idempotency_key_prefix: "lago-invoice:#{invoice.id}:v#{invoice.version_number}"
+        attachments:
       }
     end
 
