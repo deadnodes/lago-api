@@ -1,0 +1,82 @@
+name: DeadNodes dev image
+
+on:
+  push:
+    branches:
+      - codex/lago-poster-dev-141
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: getlago/postgres-partman:15.0-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: lago
+          POSTGRES_USER: lago
+          POSTGRES_PASSWORD: lago
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://lago:lago@localhost:5432/lago
+      LAGO_REDIS_CACHE_URL: redis://localhost:6379
+      LAGO_REDIS_STORE_URL: localhost:6379
+      RAILS_MASTER_KEY: N+XcWoGDzKjuoxrU8BIPN5D0/GSuqx9s
+      SECRET_KEY_BASE: cvIAI6ycC0OnVDRAjT5hmbRxnjCxl4YB
+      LAGO_API_URL: https://api.lago.dev
+      LAGO_PDF_URL: https://pdf.lago.dev
+      LAGO_DATA_API_URL: http://data_api
+      LAGO_FROM_EMAIL: noreply@getlago.com
+      LAGO_CLICKHOUSE_ENABLED: true
+      LAGO_CLICKHOUSE_MIGRATIONS_ENABLED: true
+      LAGO_CLICKHOUSE_HOST: localhost
+      LAGO_CLICKHOUSE_DATABASE: default
+      LAGO_CLICKHOUSE_PASSWORD: password
+      LAGO_KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+      MISTRAL_API_KEY: ""
+      MISTRAL_AGENT_ID: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.8
+          bundler-cache: true
+      - name: Start ClickHouse
+        run: docker run -d --rm -p 8123:8123 -p 9000:9000 --ulimit nofile=262144:262144 -v ./clickhouse-s3:/var/lib/clickhouse-s3 -v ./ci/clickhouse/config.xml:/etc/clickhouse-server/config.d/config.xml -e CLICKHOUSE_PASSWORD=password clickhouse/clickhouse-server
+      - name: Prepare schemas
+        run: |
+          ./scripts/generate.rsa.sh
+          bin/rails db:schema:load:primary
+          bin/rails db:migrate:clickhouse
+      - name: Run Poster invoice specs
+        run: bundle exec rspec spec/services/emails/poster_service_spec.rb spec/jobs/invoices/notify_job_spec.rb spec/mailers/invoice_mailer_spec.rb
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/deadnodes/lago-api:dev-${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/deadnodes/lago-api

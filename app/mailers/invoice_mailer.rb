@@ -9,7 +9,7 @@ class InvoiceMailer < ApplicationMailer
     @customer = @invoice.customer
     @show_lago_logo = !@billing_entity.organization.remove_branding_watermark_enabled?
 
-    return if @billing_entity.email.blank?
+    return if @billing_entity.email.blank? && !Emails::PosterService.configured?
     return if @customer.email.blank?
     return if @invoice.fees_amount_cents.zero?
 
@@ -24,8 +24,8 @@ class InvoiceMailer < ApplicationMailer
     I18n.with_locale(@customer.preferred_document_locale) do
       mail(
         to: @customer.email,
-        from: email_address_with_name(@billing_entity.from_email_address, @billing_entity.name),
-        reply_to: email_address_with_name(@billing_entity.email, @billing_entity.name),
+        from: email_address_with_name(from_email_address, @billing_entity.name),
+        reply_to: email_address_with_name(@billing_entity.email.presence || from_email_address, @billing_entity.name),
         subject: I18n.t(
           "email.invoice.finalized.subject",
           billing_entity_name: @billing_entity.name,
@@ -36,6 +36,13 @@ class InvoiceMailer < ApplicationMailer
   end
 
   private
+
+  def from_email_address
+    return @billing_entity.from_email_address if @billing_entity.from_email_address.present?
+    return "no-reply@poster.invalid" if Emails::PosterService.configured?
+
+    @billing_entity.from_email_address
+  end
 
   def ensure_pdf
     invoice = params[:invoice]

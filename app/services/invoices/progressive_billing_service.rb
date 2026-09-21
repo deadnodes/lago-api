@@ -145,7 +145,7 @@ module Invoices
     end
 
     def should_deliver_email?
-      License.premium? && subscription.billing_entity.email_settings.include?("invoice.finalized")
+      Invoices::EmailDelivery.enabled? && subscription.billing_entity.email_settings.include?("invoice.finalized")
     end
 
     def create_credit_note_credit

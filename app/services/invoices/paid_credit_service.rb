@@ -98,7 +98,7 @@ module Invoices
     end
 
     def should_deliver_email?
-      License.premium? &&
+      Invoices::EmailDelivery.enabled? &&
         customer.billing_entity.email_settings.include?("invoice.finalized")
     end
   end
