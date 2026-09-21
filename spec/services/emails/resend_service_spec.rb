@@ -86,6 +86,8 @@ RSpec.describe Emails::ResendService do
       end
 
       context "when Poster is configured" do
+        let(:status) { :finalized }
+
         before do
           allow(License).to receive(:premium?).and_return(false)
           stub_const(
@@ -99,7 +101,12 @@ RSpec.describe Emails::ResendService do
         end
 
         it "queues the invoice for Poster delivery" do
-          expect(Invoices::NotifyJob).to receive(:perform_later).with(invoice: resource, to: [customer.email], cc: [], bcc: [])
+          expect(Invoices::NotifyJob).to receive(:perform_later).with(
+            invoice: resource,
+            to: [customer.email],
+            cc: [],
+            bcc: []
+          )
 
           expect(service.call).to be_success
         end
